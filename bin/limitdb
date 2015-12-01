@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+
+var LimitdClient = require('limitd-client');
+var program = require('commander');
+
+var _     = require('lodash');
+var Table = require('cli-table');
+var async = require('async');
+var slug  = require('word-slug');
+var Stats = require('fast-stats').Stats;
+
+program.version(require('../package').version)
+  .option('-p, --port [9231]', 'Port to bind [9231].', '9231')
+  .option('-h, --hostname [0.0.0.0]', 'Hostname to bind [0.0.0.0].', '0.0.0.0')
+  .option('-b, --bucket <bucket>', 'Bucket type')
+  .option('-k, --key <key>', 'Bucket key')
+  .option('-t, --take <n>', 'Take or fail n tokens from the bucket.', parseInt)
+  .option('-w, --wait <n>', 'Take or wait n tokens from the bucket.', parseInt)
+  .option('-r, --put <n>', 'Put / reset n tokens in the bucket.', parseInt)
+  .option('-s, --status', 'Get the status of multiple buckets.')
+  .option('-j, --json', 'Return json output')
+  .option('-c, --concurrency [100]', 'Number of concurrent requests [100].', parseInt, 100)
+  .option('-n, --requests [100000]', 'Number of concurrent requests [100000].', parseInt, 100000)
+  .parse(process.argv);
+
+if (!program.bucket) {
+  console.error('"--bucket" is required');
+  return process.exit(1);
+}
+
+if (!program.key) {
+  console.error('"--key" is required');
+  return process.exit(1);
+}
+
+var methods = _.intersection(['take', 'wait', 'put', 'status'], Object.keys(program));
+if (methods.length > 1 || methods.length === 0) {
+  console.error('one and only one method must be provided "--take", "--wait" or "--put"');
+  return process.exit(1);
+}
+
+var method = methods[0];
+var config = _.pick(program, ['port', 'hostname']);
+var client = new LimitdClient(config);
+
+client.once('ready', function () {
+  // if ( method === 'status' ) {
+  //   client.status(program.bucket, program.key, function (err, result) {
+  //     if (err) {
+  //       console.error(err.message);
+  //       return process.exit(1);
+  //     }
+  //     if (program.json) {
+  //       console.log(JSON.stringify(result, null, 2));
+  //     } else {
+  //       if (!result.items || result.items.length === 0) {
+  //         console.log('no results');
+  //         return process.exit(0);
+  //       }
+  //       var table = new Table({
+  //         head: Object.keys(result.items[0])
+  //       });
+
+  //       result.items.map(function (r) {
+  //         return _.values(r);
+  //       }).forEach(function (r) {
+  //         table.push(r);
+  //       });
+
+  //       console.log(table.toString());
+
+  //     }
+  //     process.exit(0);
+  //   });
+  // }
+
+  console.log('Doing ' + program.requests + ' ' + method.toUpperCase() + ' operations with concurrency ' + program.concurrency);
+
+  var started_at = new Date();
+  async.mapLimit(_.range(program.requests), program.concurrency, function (i, done) {
+    var date = new Date();
+    client[method](program.bucket, program.key, program[method], function (err, result) {
+      done(null, {
+        err: err,
+        result: result,
+        took: new Date() - date
+      });
+    });
+  }, function (err, results) {
+    var took = new Date() - started_at;
+    var conformants = _.filter(results, 'result.conformant').length;
+    var errored = _.filter(results, 'err').length;
+    var non_conformants = results.length - errored - conformants;
+
+    var times = _(results).filter(function (r) { return !r.err; }).map('took').value();
+    var stats = new Stats().push(times);
+
+    var Table = require('cli-table');
+    var table = new Table();
+
+    table.push(
+        {'Total time': took + ' ms' },
+        {'Errored': errored},
+        {'Conformant': conformants},
+        {'Non Conformant': non_conformants},
+        { 'Mean': stats.amean().toFixed(2) },
+        { 'P50': stats.percentile(50).toFixed(2) },
+        { 'P95': stats.percentile(95).toFixed(2) },
+        { 'P97': stats.percentile(97).toFixed(2) },
+        { 'Max': _.max(times) },
+        { 'Min': _.min(times) }
+    );
+
+    console.log(table.toString());
+
+    process.exit(0);
+  });
+}).on('error', function (err) {
+  console.error(err.message);
+  process.exit(1);
+});
