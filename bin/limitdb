@@ -17,6 +17,7 @@ program.version(require('../package').version)
   .option('-t, --take <n>', 'Take or fail n tokens from the bucket.', parseInt)
   .option('-w, --wait <n>', 'Take or wait n tokens from the bucket.', parseInt)
   .option('-r, --put <n>', 'Put / reset n tokens in the bucket.', parseInt)
+  .option('--ping', 'Execute a ping on the remote server.')
   .option('-s, --status', 'Get the status of multiple buckets.')
   .option('-j, --json', 'Return json output')
   .option('-z, --connections [5]', 'Number of tcp connections [5].', 5, parseInt)
@@ -24,19 +25,19 @@ program.version(require('../package').version)
   .option('-n, --requests [100000]', 'Number of concurrent requests [100000].', 100000, parseInt)
   .parse(process.argv);
 
-if (!program.bucket) {
+if (!program.bucket && !program.ping) {
   console.error('"--bucket" is required');
   return process.exit(1);
 }
 
-if (!program.key) {
+if (!program.key && !program.ping) {
   console.error('"--key" is required');
   return process.exit(1);
 }
 
-var methods = _.intersection(['take', 'wait', 'put', 'status'], Object.keys(program));
+var methods = _.intersection(['take', 'wait', 'put', 'status', 'ping'], Object.keys(program));
 if (methods.length > 1 || methods.length === 0) {
-  console.error('one and only one method must be provided "--take", "--wait" or "--put"');
+  console.error('one and only one method must be provided "--take", "--wait", "--ping", "--status" or "--put"');
   return process.exit(1);
 }
 
@@ -45,41 +46,20 @@ var config = _.pick(program, ['port', 'hostname']);
 _.extend(config, { size: program.connections });
 
 var client = new LimitdClient.Pool(config, function () {
-  // if ( method === 'status' ) {
-  //   client.status(program.bucket, program.key, function (err, result) {
-  //     if (err) {
-  //       console.error(err.message);
-  //       return process.exit(1);
-  //     }
-  //     if (program.json) {
-  //       console.log(JSON.stringify(result, null, 2));
-  //     } else {
-  //       if (!result.items || result.items.length === 0) {
-  //         console.log('no results');
-  //         return process.exit(0);
-  //       }
-  //       var table = new Table({
-  //         head: Object.keys(result.items[0])
-  //       });
-
-  //       result.items.map(function (r) {
-  //         return _.values(r);
-  //       }).forEach(function (r) {
-  //         table.push(r);
-  //       });
-
-  //       console.log(table.toString());
-
-  //     }
-  //     process.exit(0);
-  //   });
-  // }
-
   console.log('Doing ' + program.requests + ' ' + method.toUpperCase() + ' operations with concurrency ' + program.concurrency + ' and ' + program.connections + ' connections.');
 
   var started_at = new Date();
   async.mapLimit(_.range(program.requests), program.concurrency, function (i, done) {
     var date = new Date();
+    if (method === 'ping') {
+      return client[method](function (err, result) {
+        done(null, {
+          err: err,
+          result: result,
+          took: new Date() - date
+        });
+      });
+    }
     client[method](program.bucket, program.key, program[method], function (err, result) {
       done(null, {
         err: err,
@@ -88,10 +68,11 @@ var client = new LimitdClient.Pool(config, function () {
       });
     });
   }, function (err, results) {
-    var took = new Date() - started_at;
-    var conformants = _.filter(results, 'result.conformant').length;
-    var errored = _.filter(results, 'err').length;
-    var non_conformants = results.length - errored - conformants;
+
+    var took            = new Date() - started_at;
+    var conformants     = method === 'ping' ? 'n/a' : _.filter(results, 'result.conformant').length;
+    var errored         = _.filter(results, 'err').length;
+    var non_conformants = method === 'ping' ? 'n/a' : (results.length - errored - conformants);
 
     var times = _(results).filter(function (r) { return !r.err; }).map('took').value();
     var stats = new Stats().push(times);
