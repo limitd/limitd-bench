@@ -19,8 +19,8 @@ program.version(require('../package').version)
   .option('-r, --put <n>', 'Put / reset n tokens in the bucket.', parseInt)
   .option('-s, --status', 'Get the status of multiple buckets.')
   .option('-j, --json', 'Return json output')
-  .option('-c, --concurrency [100]', 'Number of concurrent requests [100].', parseInt, 100)
-  .option('-n, --requests [100000]', 'Number of concurrent requests [100000].', parseInt, 100000)
+  .option('-c, --concurrency [100]', 'Number of concurrent requests [100].', 100, parseInt)
+  .option('-n, --requests [100000]', 'Number of concurrent requests [100000].', 100000, parseInt)
   .parse(process.argv);
 
 if (!program.bucket) {
