@@ -19,6 +19,7 @@ program.version(require('../package').version)
   .option('-r, --put <n>', 'Put / reset n tokens in the bucket.', parseInt)
   .option('-s, --status', 'Get the status of multiple buckets.')
   .option('-j, --json', 'Return json output')
+  .option('-z, --connections [5]', 'Number of tcp connections [5].', 5, parseInt)
   .option('-c, --concurrency [100]', 'Number of concurrent requests [100].', 100, parseInt)
   .option('-n, --requests [100000]', 'Number of concurrent requests [100000].', 100000, parseInt)
   .parse(process.argv);
@@ -41,9 +42,9 @@ if (methods.length > 1 || methods.length === 0) {
 
 var method = methods[0];
 var config = _.pick(program, ['port', 'hostname']);
-var client = new LimitdClient(config);
+_.extend(config, { size: program.connections });
 
-client.once('ready', function () {
+var client = new LimitdClient.Pool(config, function () {
   // if ( method === 'status' ) {
   //   client.status(program.bucket, program.key, function (err, result) {
   //     if (err) {
@@ -74,7 +75,7 @@ client.once('ready', function () {
   //   });
   // }
 
-  console.log('Doing ' + program.requests + ' ' + method.toUpperCase() + ' operations with concurrency ' + program.concurrency);
+  console.log('Doing ' + program.requests + ' ' + method.toUpperCase() + ' operations with concurrency ' + program.concurrency + ' and ' + program.connections + ' connections.');
 
   var started_at = new Date();
   async.mapLimit(_.range(program.requests), program.concurrency, function (i, done) {
