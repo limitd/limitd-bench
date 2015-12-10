@@ -50,6 +50,10 @@ var client = new LimitdClient.Pool(config, function () {
 
   var started_at = new Date();
   async.mapLimit(_.range(program.requests), program.concurrency, function (i, done) {
+    if (i % program.concurrency === 0) {
+      console.log('...doing ' + program.concurrency + ' requests - current: ', i);
+    }
+
     var date = new Date();
     if (method === 'ping') {
       return client[method](function (err, result) {
