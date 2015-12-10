@@ -43,7 +43,11 @@ if (methods.length > 1 || methods.length === 0) {
 
 var method = methods[0];
 var config = _.pick(program, ['port', 'hostname']);
-_.extend(config, { size: program.connections });
+
+_.extend(config, {
+  size: program.connections,
+  timeout: 10000
+});
 
 var client = new LimitdClient.Pool(config, function () {
   console.log('Doing ' + program.requests + ' ' + method.toUpperCase() + ' operations with concurrency ' + program.concurrency + ' and ' + program.connections + ' connections.');
