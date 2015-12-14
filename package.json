@@ -15,7 +15,7 @@
     "cli-table": "~0.3.1",
     "commander": "~2.8.1",
     "fast-stats": "0.0.3",
-    "limitd-client": "~1.6.0",
+    "limitd-client": "~1.7.0",
     "lodash": "~3.9.3",
     "word-slug": "0.0.1"
   },
