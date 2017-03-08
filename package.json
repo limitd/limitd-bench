@@ -1,7 +1,7 @@
 {
   "name": "limitd-bench",
   "description": "A benchmark tool for limitd.",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "author": "José F. Romaniello <jfromaniello@gmail.com> (http://joseoncode.com)",
   "repository": {
     "url": "git://github.com/limitd/limitd-bench.git"
