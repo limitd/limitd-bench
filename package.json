@@ -1,10 +1,10 @@
 {
-  "name": "limitdb",
+  "name": "limitd-bench",
   "description": "A benchmark tool for limitd.",
   "version": "1.5.1",
   "author": "José F. Romaniello <jfromaniello@gmail.com> (http://joseoncode.com)",
   "repository": {
-    "url": "git://github.com/limitd/limitdab.git"
+    "url": "git://github.com/limitd/limitd-bench.git"
   },
   "bin": "bin/limitdb",
   "scripts": {

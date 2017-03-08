@@ -3,7 +3,7 @@ A benchmark command line tool for [limitd](https://github.com/auth0/limitd).
 ## Installation
 
 ```
-npm install -g limitdb
+npm install -g limitd-bench
 ```
 
 ## Usage
